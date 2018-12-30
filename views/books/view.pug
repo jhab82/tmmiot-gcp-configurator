@@ -1,0 +1,166 @@
+//- Copyright 2017, Google, Inc.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+
+extends ../base.pug
+
+block content
+  h3 Configuration
+    script(type='text/javascript').
+      google.charts.load('current', {'packages':['bar', 'table', 'corechart']});
+      google.charts.setOnLoadCallback(drawChart);
+        
+        var monthlyDataVolumeBytes = #{book.devices}*Math.max(#{book.messageSize}, 1024)*#{book.messageFrequency}*24*30
+        var monthlyDataVolumeGB = monthlyDataVolumeBytes/(Math.pow(10,9))
+        var res0 =0; var res1 = 0; var res2= 0; var res3 = 0; var res=0;
+        var iot250MB = 0; var iot250GB = 0.0045*1000; var iot5000GB = 0.002*1000; var iotMore5000GB = 0.00045*1000;
+        var pubSub10GB = 0; var pubSub50TiB = 60; var pubSub100TiB = 50; var pubSubMore150TiB = 40; var pubSub10GB = 0; 
+        var monthlyDataVolumePubSubTB = monthlyDataVolumeGB *2 / 1000
+        var resP0=0; var resP1=0;resP2=0; var resP=0; var resP3=0;
+
+        //IoT Core
+        if (monthlyDataVolumeGB < 0.25) {
+            res0 = 0;
+            res = res0+res1+res2+res3;
+        } else if (monthlyDataVolumeGB < 250) {
+            res0 = 0;
+            res1 = (monthlyDataVolumeGB-0.25)*iot250GB;
+            res = res0+res1;
+        } else if (monthlyDataVolumeGB < 5000) {  
+            res1 = (250-0.25)*iot250GB;
+            res2 = (monthlyDataVolumeGB-250-0.25)*iot5000GB;
+            res = res0+res1+res2;
+        } else if (monthlyDataVolumeGB > 5000) {
+            res1 = (250-0.25)*iot250GB;
+            res2 = 5000*iot5000GB;
+            res3 = (monthlyDataVolumeGB-5000)*iotMore5000GB
+            res = res0+res1+res2+res3;
+        }
+
+        //PubSub
+        if (monthlyDataVolumePubSubTB < 0.01) {
+            resP0=0;
+        } else if (monthlyDataVolumePubSubTB < 50) {
+            resP0=0;
+            resP1=(monthlyDataVolumePubSubTB-0.01)*60
+            resP=resP0+resP1;
+        } else if (monthlyDataVolumePubSubTB < 150) {
+            resP0=0;
+            resP1=(50-0.01)*60
+            resP2=(monthlyDataVolumePubSubTB-50-0.01)*50
+            resP=resP0+resP1+resP2;
+        } else if (monthlyDataVolumePubSubTB > 150) {
+            resP0=0;
+            resP1=(50-0.01)*60
+            resP2=100*50
+            resP3=(monthlyDataVolumePubSubTB-150)*40
+            resP=resP0+resP1+resP2+resP3;
+        }
+        
+      //Big Data 
+      var BDStorage =0; var BDQueries =0;
+      if(monthlyDataVolumeGB*12 > 10)
+       var BDStorage = (monthlyDataVolumeGB*12-10)*0.02;
+      
+      var BDStramInserts = monthlyDataVolumeGB/0.2*0.01;
+      
+      if(monthlyDataVolumeGB/#{book.devices}*30 > 1000)
+        var BDQueries = monthlyDataVolumeGB*30/1000 * 5;
+    
+      resBD = ((BDStorage+BDStramInserts+BDQueries) > 0.1 ? (BDStorage+BDStramInserts+BDQueries) :0) ;
+
+      //Cloud function
+      //Assumption: 128MB at 200Mhz CPU running 200ms only using Google APIs
+      
+      //Invocation
+      var CFInvo = 0; var CFGBsec=0; var CFGHzsec = 0; CFNet = 0;
+      CFInvo = #{book.devices}*#{book.messageFrequency}*24*30;
+
+      //Compute Time
+      CFGBsec = (128/1024)*0.2*CFInvo;
+      CFGHzsec = (200/1000)*0.2*CFInvo;
+      
+      //No Networking
+
+      //CF Costs
+      var resCFInvo = ((CFInvo-2000000)*0.0000004 > 0 ? (CFInvo-2000000)*0.0000004 : 0);
+      var resCFGBsec = ((CFGBsec-400000)*0.0000025 > 0 ? (CFGBsec-400000)*0.0000025 : 0);
+      var resCFGHzsec = ((CFGHzsec-200000)*0.0000100 > 0 ? (CFGHzsec-200000)*0.0000100 : 0);
+      var resCF =resCFInvo+resCFGBsec+resCFGHzsec;
+    
+      function drawChart() {
+
+        var data = google.visualization.arrayToDataTable([
+        ['Service', '$ amount per month' ],
+        ['IoT Core', res],
+        ['Pub/Sub', resP],
+        ['Cloud Function',  resCF],
+        ['BigQuery', resBD]
+      ]);
+        var options = {
+            title: 'Google Cloud Cost splits',
+        };
+      
+      var data2 = new google.visualization.DataTable();
+        data2.addColumn('number', 'Num')
+        data2.addColumn('string', 'Description');
+        data2.addColumn('number', 'Amount');
+        data2.addColumn('string', 'Unit');
+        data2.addColumn('number', 'Min');
+        data2.addColumn('string', 'Assumption')
+        data2.addRows([
+          [1,'Devices [D]', #{book.devices} , "#", 0, "simultaneously ingesting" ],
+          [2,'Message Size [MS]',  #{book.messageSize},  "Bytes", 1024, "minimum charged 1024"],
+          [3,'Message Frequency per D [MF]', #{book.messageFrequency}, "#/h", 0, "(messages / D ) / h"],
+          [4,'Monthly data ingest IoT [MDIoTGB]', monthlyDataVolumeGB, "GB", 0.25, "D * max(MS, 1024) * MF * 24 * 30 * 10^-9"],
+          [5,'Monthly IoT Core costs', res, "$", 0, "(MDIoTGB - 0.25) * 4.5$ + ..."],
+          [6,'Monthly data stream Pub/Sub [MDPubTB]', monthlyDataVolumePubSubTB, "TB", 0.01, "MDIoTGB * 2 * 10^-3"],
+          [7,'Monthly Pub/Sub Costs', resP, "$", 0, "(MDPubTB - 0.01) * 60$ + ..."],
+          [8,'Monthly CF innvocation [CFINV]', CFInvo, "#", 2000000, "D * MF * 24 * 30"],
+          [9,'Monthly CF computation data [CFGBsec]', CFGBsec, "GB-sec", 400000, "(128MB/1024) * 0.2sec * CFINV"],
+          [10,'Monthly CF computation frequency [CFGBHzsec]', CFGBsec, "GHz-sec", 200000, "(200Mhz/1000) * 0.2sec * CFINV"],
+          [11,'Monthly CF costs', resCF, "$", 0, "(CFINV*0.004 + CFGBsec*0.025 + CFGBHzsec*0.1) * 10^-4"],
+          [12,'Monthly long term BigQuery storage [BDL]', monthlyDataVolumeGB*12, "GB", 10, "MDIoTGB * 12 (1 year accumulated)"],
+          [13,'Monthly streaming inserts BigQuery [BDS]', monthlyDataVolumeGB, "GB", 0.2, "MDIoTGB / 0.2"],
+          [14,'Monthly quering BigQuery [BDQ]', monthlyDataVolumeGB/#{book.devices}*30, "TB", 1, "MDIoTGB * 30 * 10^-3"],
+          [15,'Monthly BigQuery costs', resBD, "$", 0, "BDL * 0.02$ + BDS* 0.01$ + BDQ * 5$"],
+          [16,'Monthly Total costs', resBD+resP+res+resCF, "$", 0, ""],
+          [17,'Yearly Total costs', (resBD+resP+res+resCF).toFixed(0)*12, "$", 0, ""],
+          [18,'Yearly cost per device', (resBD+resP+res+resCF).toFixed(0)*12/#{book.devices}, "$", 0, ""],
+        ]);
+
+        var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
+        chart.draw(data, { width: '600', height: '400'});
+
+        var chart2 = new google.visualization.Table(document.getElementById('chart_div2'));
+        chart2.draw(data2, {showRowNumber: false, width: '100%', height: '100%'});
+      }
+
+  .btn-group
+  .media
+    .media-body
+      -var monthlyDataVolumeBytes = book.devices*Math.max(book.messageSize, 1024)*book.messageFrequency*24*30
+      -var monthlyDataVolumeGB = monthlyDataVolumeBytes/(Math.pow(10,9))  
+      h4= book.title
+        | &nbsp;
+        small= "This configurator provides only an indication of costs and is not complete and holds several assumption. In addition there might be mistakes in conversion. You can see the complete code of derivation in the pages javascript source code"
+    #chart_div2
+    p= " "
+    #chart_div
+    b= "You have "+ book.devices+" devices ingesting simultaneously " +book.messageSize + " Bytes size messages"
+    if book.messageSize < 1024 
+        small= " - as your message is small, the minimum chargeable message size 1024 Bytes will be used. "
+    else
+        small= " - your message is larger than the minimum chargeable message size of 1024 Bytes."
+    b= " One device is ingesting " + book.messageFrequency + " messages in one hour"             
+    //b=" Monthly Data Volume in Bytes: " + monthlyDataVolumeBytes
+    br
