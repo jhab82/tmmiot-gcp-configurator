@@ -15,7 +15,7 @@ extends ../base.pug
 
 block content
   h3 Configurations
-
+  
   a(href="/books/add", class='btn btn-success btn-sm')
     i.glyphicon.glyphicon-plus
     span  Add configuration
@@ -25,7 +25,7 @@ block content
       a(href=`/books/${book.id}`)
         .media-body
           h4= book.title
-          p= book.messageSize
+          small= book.devices + " devices -- " + book.messageSize + " bytes per message -- " + book.messageFrequency + " messages per device in one hour"
 
   if !books.length
     p No configurations found.

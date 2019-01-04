@@ -14,7 +14,11 @@
 extends ../base.pug
 
 block content
-  h3 Configuration
+  h4 Google IoT Configuration 
+    small= "This configurator provides only an approximation of costs for the current implementation and is not complete and holds several assumption. In addition there might be mistakes in conversion. You can see the complete code of derivation in the pages javascript source code."
+    br
+    br
+    img.className#IdName(src="https://cdn-images-1.medium.com/max/800/1*omY7P6Bm1YuYb9Zon8yh7A.png" alt="GCP-M0M3" width="100%")
     script(type='text/javascript').
       google.charts.load('current', {'packages':['bar', 'table', 'corechart']});
       google.charts.setOnLoadCallback(drawChart);
@@ -97,65 +101,71 @@ block content
       var resCFGHzsec = ((CFGHzsec-200000)*0.0000100 > 0 ? (CFGHzsec-200000)*0.0000100 : 0);
       var resCF =resCFInvo+resCFGBsec+resCFGHzsec;
     
-      function drawChart() {
+      function drawChart(type) {
 
         var data = google.visualization.arrayToDataTable([
-        ['Service', '$ amount per month' ],
-        ['IoT Core', res],
-        ['Pub/Sub', resP],
-        ['Cloud Function',  resCF],
-        ['BigQuery', resBD]
-      ]);
+            ['Service', '$ amount per month' ],
+            ['IoT Core', res],
+            ['Pub/Sub', resP],
+            ['Cloud Function',  resCF],
+            ['BigQuery', resBD]
+        ]);
+        
         var options = {
             title: 'Google Cloud Cost splits',
         };
       
-      var data2 = new google.visualization.DataTable();
-        data2.addColumn('number', 'Num')
-        data2.addColumn('string', 'Description');
-        data2.addColumn('number', 'Amount');
-        data2.addColumn('string', 'Unit');
-        data2.addColumn('number', 'Min');
-        data2.addColumn('string', 'Assumption')
-        data2.addRows([
-          [1,'Devices [D]', #{book.devices} , "#", 0, "simultaneously ingesting" ],
-          [2,'Message Size [MS]',  #{book.messageSize},  "Bytes", 1024, "minimum charged 1024"],
-          [3,'Message Frequency per D [MF]', #{book.messageFrequency}, "#/h", 0, "(messages / D ) / h"],
-          [4,'Monthly data ingest IoT [MDIoTGB]', monthlyDataVolumeGB, "GB", 0.25, "D * max(MS, 1024) * MF * 24 * 30 * 10^-9"],
-          [5,'Monthly IoT Core costs', res, "$", 0, "(MDIoTGB - 0.25) * 4.5$ + ..."],
-          [6,'Monthly data stream Pub/Sub [MDPubTB]', monthlyDataVolumePubSubTB, "TB", 0.01, "MDIoTGB * 2 * 10^-3"],
-          [7,'Monthly Pub/Sub Costs', resP, "$", 0, "(MDPubTB - 0.01) * 60$ + ..."],
-          [8,'Monthly CF innvocation [CFINV]', CFInvo, "#", 2000000, "D * MF * 24 * 30"],
-          [9,'Monthly CF computation data [CFGBsec]', CFGBsec, "GB-sec", 400000, "(128MB/1024) * 0.2sec * CFINV"],
-          [10,'Monthly CF computation frequency [CFGBHzsec]', CFGBsec, "GHz-sec", 200000, "(200Mhz/1000) * 0.2sec * CFINV"],
-          [11,'Monthly CF costs', resCF, "$", 0, "(CFINV*0.004 + CFGBsec*0.025 + CFGBHzsec*0.1) * 10^-4"],
-          [12,'Monthly long term BigQuery storage [BDL]', monthlyDataVolumeGB*12, "GB", 10, "MDIoTGB * 12 (1 year accumulated)"],
-          [13,'Monthly streaming inserts BigQuery [BDS]', monthlyDataVolumeGB, "GB", 0.2, "MDIoTGB / 0.2"],
-          [14,'Monthly quering BigQuery [BDQ]', monthlyDataVolumeGB/#{book.devices}*30, "TB", 1, "MDIoTGB * 30 * 10^-3"],
-          [15,'Monthly BigQuery costs', resBD, "$", 0, "BDL * 0.02$ + BDS* 0.01$ + BDQ * 5$"],
-          [16,'Monthly Total costs', resBD+resP+res+resCF, "$", 0, ""],
-          [17,'Yearly Total costs', (resBD+resP+res+resCF).toFixed(0)*12, "$", 0, ""],
-          [18,'Yearly cost per device', (resBD+resP+res+resCF).toFixed(0)*12/#{book.devices}, "$", 0, ""],
+        var data2 = new google.visualization.DataTable();
+            data2.addColumn('number', '#')
+            data2.addColumn('string', 'Description');
+            data2.addColumn('string', 'Abbreviation');
+            data2.addColumn('number', 'Amount');
+            data2.addColumn('string', 'Unit');
+            data2.addColumn('number', 'Min');
+            data2.addColumn('string', 'Assumptions')
+            data2.addRows([
+            [1,'Devices', '[D]', #{book.devices} , "#", 0, "Simultaneously ingesting" ],
+            [2,'Message Size ','[MS]',  #{book.messageSize},  "Bytes", 1024, "Minimum charged 1024"],
+            [3,'Message Frequency', '[MF]', #{book.messageFrequency}, "#/h", 0, "(M per D ) / h"],
+            [4,'Monthly data ingest', '[MDIoTGB]', Math.round(monthlyDataVolumeGB*10)/10, "GB", 0.25, "D * max(MS, 1024) * MF * 24 * 30 * 10^-9"],
+            [5,'Monthly IoT Core costs','', Math.round(res), "$", 0, "(MDIoTGB - 0.25) * 4.5$ + ..."],
+            [6,'Monthly data stream Pub/Sub','[MDPubTB]', Math.round(monthlyDataVolumePubSubTB*10)/10, "TB", 0.01, "MDIoTGB * 2 * 10^-3"],
+            [7,'Monthly Pub/Sub Costs','', Math.round(resP), "$", 0, "(MDPubTB - 0.01) * 60$ + ..."],
+            [8,'Monthly CF innvocation','[CFINV]', Math.round(CFInvo*10)/10, "#", 2000000, "D * MF * 24 * 30"],
+            [9,'Monthly CF computation data', '[CFGBsec]',  Math.round(CFGBsec*10)/10, "GB-sec", 400000, "(128MB/1024) * 0.2sec * CFINV"],
+            [10,'Monthly CF computation frequency','[CFGBHzsec]', Math.round(CFGBsec*10)/10, "GHz-sec", 200000, "(200Mhz/1000) * 0.2sec * CFINV"],
+            [11,'Monthly CF costs','', Math.round(resCF), "$", 0, "(CFINV*0.004 + CFGBsec*0.025 + CFGBHzsec*0.1) * 10^-4"],
+            [12,'Monthly long term BigQuery storage', '[BDL]', Math.round(monthlyDataVolumeGB*12*10)/10, "GB", 10, "MDIoTGB * 12 (1 year accumulated)"],
+            [13,'Monthly streaming inserts BigQuery','[BDS]', Math.round(monthlyDataVolumeGB*10)/10, "GB", 0.2, "MDIoTGB / 0.2"],
+            [14,'Monthly quering BigQuery','[BDQ]', Math.round(monthlyDataVolumeGB/#{book.devices}*30*10)/10, "TB", 1, "MDIoTGB * 30 * 10^-3"],
+            [15,'Monthly BigQuery costs','', Math.round(resBD), "$", 0, "BDL * 0.02$ + BDS* 0.01$ + BDQ * 5$"],
+            [16,'Monthly Total costs','', Math.round(resBD+resP+res+resCF), "$", 0, ""],
+            [17,'Yearly Total costs','', Math.round((resBD+resP+res+resCF)*12), "$", 0, ""],
+            [18,'Yearly cost per device','', Math.round((resBD+resP+res+resCF)*12/#{book.devices}), "$", 0, ""],
         ]);
 
-        var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
-        chart.draw(data, { width: '600', height: '400'});
+        var chart = new google.visualization.PieChart(document.getElementById('div_pieChart'));
+        chart.draw(data, { width: '400', height: '400', legend: {position: 'bottom'}});
 
-        var chart2 = new google.visualization.Table(document.getElementById('chart_div2'));
-        chart2.draw(data2, {showRowNumber: false, width: '100%', height: '100%'});
+        var view = new google.visualization.DataView(data2);
+        if(type==true) {
+            view.setColumns([0,1,2,3,4,5,6]);
+            view.setRows([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17])
+        } else {
+            view.setColumns([1,3,4]);
+            view.setRows([0,1,2,3,4,10,14,15,16,17])
+        }
+        var table = new google.visualization.Table(document.getElementById('div_table'));
+        table.draw(view, {showRowNumber: false, width: '100%', height: '100%'});
       }
 
-  .btn-group
+
   .media
     .media-body
       -var monthlyDataVolumeBytes = book.devices*Math.max(book.messageSize, 1024)*book.messageFrequency*24*30
       -var monthlyDataVolumeGB = monthlyDataVolumeBytes/(Math.pow(10,9))  
       h4= book.title
         | &nbsp;
-        small= "This configurator provides only an indication of costs and is not complete and holds several assumption. In addition there might be mistakes in conversion. You can see the complete code of derivation in the pages javascript source code"
-    #chart_div2
-    p= " "
-    #chart_div
     b= "You have "+ book.devices+" devices ingesting simultaneously " +book.messageSize + " Bytes size messages"
     if book.messageSize < 1024 
         small= " - as your message is small, the minimum chargeable message size 1024 Bytes will be used. "
@@ -164,3 +174,8 @@ block content
     b= " One device is ingesting " + book.messageFrequency + " messages in one hour"             
     //b=" Monthly Data Volume in Bytes: " + monthlyDataVolumeBytes
     br
+    #btn-group
+        button(onclick='drawChart(true)') Details
+        button(onclick='drawChart(false)') Plain
+    #div_table
+    #div_pieChart
